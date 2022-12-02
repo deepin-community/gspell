@@ -1,0 +1,38 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,-O1 -Wl,-z,defs -Wl,--as-needed
+
+# only build documentation if gtk-doc is installed and the nodoc profile is not set
+ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES)),)
+ifneq ($(shell which gtkdoc-scan),)
+BUILD_DOC := --enable-gtk-doc --enable-gtk-doc-html
+endif
+endif
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- $(BUILD_DOC) --enable-vala --enable-installed-tests
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck, $(DEB_BUILD_OPTIONS)))
+	mkdir debian/home
+	HOME=debian/home dbus-run-session -- xvfb-run dh_auto_test
+endif
+
+override_dh_autoreconf:
+	dh_autoreconf --as-needed
+
+override_dh_install:
+	find debian/ -name '*.la' -print -delete
+	rm -f debian/tmp/usr/bin/gspell-app1
+	dh_install
+
+override_dh_missing:
+	dh_missing --fail-missing
+
+override_dh_clean:
+	rm -rf debian/home
+	dh_clean
